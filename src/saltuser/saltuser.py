@@ -41,6 +41,7 @@ class SALTUser:
         self._user_id = user_id
         self._tac_member_partners = self._find_tac_member_partners()
         self._tac_chair_partners = self._find_tac_chair_partners()
+        self._viewable_proposals_cache = None
 
     @staticmethod
     def find_by_username(username, db_connectable):
@@ -249,11 +250,44 @@ SELECT COUNT(*) AS User_Count
 
         Returns
         -------
-        Whether the user mayu view the proposal.
+        Whether the user may view the proposal.
 
         """
 
-        return self.is_investigator(proposal_code) or self.is_proposal_tac_member(proposal_code) or self.is_admin()
+        return proposal_code in self._viewable_proposals
+
+    @property
+    def _viewable_proposals(self):
+        """
+        The proposals (as a list of proposal codes) the user may view.
+
+        Returns
+        -------
+        list of str
+            The list of proposal codes.
+        """
+
+        if self._viewable_proposals_cache is not None:
+            return self._viewable_proposals_cache
+
+        sql = """
+SELECT DISTINCT Proposal_Code
+       FROM ProposalCode AS pc
+       JOIN ProposalInvestigator AS pi ON pc.ProposalCode_Id = pi.ProposalCode_Id
+       JOIN Investigator AS i ON pi.Investigator_Id = i.Investigator_Id
+       JOIN PiptUser AS pu ON i.PiptUser_Id=pu.PiptUser_Id
+       JOIN Proposal AS p ON pc.ProposalCode_Id = p.ProposalCode_Id
+       JOIN MultiPartner AS mp ON pc.ProposalCode_Id = mp.ProposalCode_Id
+                                  AND p.Semester_Id = mp.Semester_Id
+       JOIN Partner AS partner ON mp.Partner_Id = partner.Partner_Id
+       WHERE pu.PiptUser_Id=%(user_id)s
+             OR (partner.Partner_Code IN %(tacs)s AND mp.ReqTimeAmount>0)
+             OR (1=%(is_admin)s)
+"""
+        df = self._query(sql, params=dict(user_id=self._user_id, tacs=self.tacs if self.tacs else ['IMPOSSIBLE_VALUE'], is_admin=1 if self.is_admin() else 0))
+
+        self._viewable_proposals_cache = df['Proposal_Code'].tolist()
+        return self._viewable_proposals_cache
 
     def may_edit_proposal(self, proposal_code):
         """
@@ -272,7 +306,6 @@ SELECT COUNT(*) AS User_Count
         """
 
         return self.is_principal_investigator(proposal_code) or self.is_principal_contact(proposal_code) or self.is_admin()
-
 
     def may_view_block(self, block_id):
         """
