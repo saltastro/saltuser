@@ -286,7 +286,7 @@ SELECT DISTINCT Proposal_Code
 """
         df = self._query(sql, params=dict(user_id=self._user_id, tacs=self.tacs if self.tacs else ['IMPOSSIBLE_VALUE'], is_admin=1 if self.is_admin() else 0))
 
-        self._viewable_proposals_cache = df['Proposal_Code'].tolist()
+        self._viewable_proposals_cache = set(df['Proposal_Code'].tolist())
         return self._viewable_proposals_cache
 
     def may_edit_proposal(self, proposal_code):
