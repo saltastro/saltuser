@@ -11,28 +11,64 @@ class SALTUser:
     The aim of this class is to allow checking roles and permissions. It includes no
     authentication.
 
+    A new user should be created using either the constructor or the :meth:`find_by_username` method.
+
     You need to specify a database connection when creating the user. Any format allowed
     by the `con` parameter of pandas' `read_sql` function can be used.
 
     Parameters
     ----------
-    username : str
-        The username of the SALT user.
-    db_engine : SQLAlchemy connectable(engine/connection) or database string URI
+    user_id : int
+        The user id.
+    db_connectable : SQLAlchemy connectable(engine/connection) or database string URI
         A connection to the database to use, or its URI.
 
     Raises
     ------
     ValueError
-        If there exists no user for the username.
+        If the user does not exist.
 
     """
 
-    def __init__(self, username, db_connectable):
+    def __init__(self, user_id, db_connectable):
+        # sanity check: does the user exist?
+        sql = 'SELECT PiptUser_Id FROM PiptUser WHERE PiptUser_Id=%(user_id)s'
+        df = pd.read_sql(sql, con=db_connectable, params=dict(user_id=user_id))
+        if len(df) == 0:
+            raise ValueError('There is no user with id {user_id}.'.format(user_id=user_id))
+
         self._db_connectable = db_connectable
-        self._user_id = self._find_user_id(username)
+        self._user_id = user_id
         self._tac_member_partners = self._find_tac_member_partners()
         self._tac_chair_partners = self._find_tac_chair_partners()
+
+    @staticmethod
+    def find_by_username(username, db_connectable):
+        """
+        Get the user with a given username.
+
+        Parameters
+        ----------
+        username : str
+            The username.
+        db_connectable : SQLAlchemy connectable(engine/connection) or database string URI
+            A connection to the database to use, or its URI.
+
+        Returns
+        -------
+        SALTUser
+            The SALT user.
+
+        Raises
+        ------
+        ValueError
+            If the user does not exist.
+
+        """
+
+        user_id = SALTUser._find_user_id(username, db_connectable)
+
+        return SALTUser(user_id, db_connectable)
 
     def is_admin(self):
         """
@@ -172,6 +208,19 @@ SELECT COUNT(*) AS User_Count
 
         return len(set(self._tac_member_partners).intersection(self._proposal_partners(proposal_code))) > 0
 
+    @property
+    def tacs(self):
+        """
+        The TACs (as a list of partner codes) on which the user serves.
+
+        Returns
+        -------
+        list of str
+            The partner codes of the TACs.
+        """
+
+        return self._tac_member_partners
+
     def is_tac_chair(self, partner_code):
         """
         Check whether the user is chair of a partner's TAC.
@@ -224,6 +273,92 @@ SELECT COUNT(*) AS User_Count
 
         return self.is_principal_investigator(proposal_code) or self.is_principal_contact(proposal_code) or self.is_admin()
 
+
+    def may_view_block(self, block_id):
+        """
+        Check whether the user may view a given block.
+
+        Parameters
+        ----------
+        block_id : int
+            The block id.
+
+        Returns
+        -------
+        bool
+            Whether the user may view the block.
+
+        Raises
+        ------
+        ValueError
+            If there exists no block with the given block id.
+
+        """
+
+        proposal_code = self._proposal_code_of_block(block_id=block_id)
+
+        return self.may_view_proposal(proposal_code=proposal_code)
+
+    def may_edit_block(self, block_id):
+        """
+        Check whether the user may edit a given block.
+
+        Parameters
+        ----------
+        block_id : int
+            The block id.
+
+        Returns
+        -------
+        bool
+            Whether the user may edit the block.
+
+        Raises
+        ------
+        ValueError
+            If there exists no block with the given block id.
+
+        """
+
+        proposal_code = self._proposal_code_of_block(block_id=block_id)
+
+        return self.may_edit_proposal(proposal_code=proposal_code)
+
+    def _proposal_code_of_block(self, block_id):
+        """
+        Get the proposal code of the proposal containing a given block.
+
+        Parameters
+        ----------
+        block_id : int
+            The block id.
+
+        Returns
+        -------
+        str
+            The proposal code.
+
+        Raises
+        ------
+        ValueError
+            If there exists no block with the given block id.
+
+        """
+
+        sql = '''
+SELECT Proposal_Code
+       FROM ProposalCode AS pc
+       JOIN Block AS b ON pc.ProposalCode_Id = b.ProposalCode_Id
+       WHERE Block_Id=%(block_id)s
+        '''
+        df = self._query(sql, params=dict(block_id=block_id))
+
+        # sanity check: does the block exist?
+        if len(df) == 0:
+            raise ValueError('There exists no block with id {block_id}'.format(block_id=block_id))
+
+        return df['Proposal_Code'][0]
+
     def _query(self, sql, params):
         """
         Query the database.
@@ -247,7 +382,8 @@ SELECT COUNT(*) AS User_Count
 
         return pd.read_sql(sql, con=self._db_connectable, params=params)
 
-    def _find_user_id(self, username):
+    @staticmethod
+    def _find_user_id(username, db_connectable):
         """
         Find the user id corresponding to a username.
 
@@ -255,6 +391,8 @@ SELECT COUNT(*) AS User_Count
         ----------
         username : str
             The username.
+        db_connectable : SQLAlchemy connectable(engine/connection) or database string URI
+            A connection to the database to use, or its URI.
 
         Returns
         -------
@@ -264,20 +402,18 @@ SELECT COUNT(*) AS User_Count
         Raises
         ------
         ValueError
-            If the username does not exist or is ambiguous.
+            If the username does not exist.
 
         """
 
         sql = '''
 SELECT PiptUser_Id FROM PiptUser WHERE Username=%(username)s
         '''
-        df = self._query(sql, params=dict(username=username))
+        df = pd.read_sql(sql, con=db_connectable, params=dict(username=username))
 
-        # sanity checks
+        # sanity check: does the user exist?
         if len(df) == 0:
-            raise ValueError("Username does not exist: {username}".format(username=username))
-        if len(df) > 1:
-            raise ValueError("Username is ambiguous: {username}".format(username=username))
+            raise ValueError("The username does not exist: {username}".format(username=username))
 
         return df['PiptUser_Id'][0].item()
 
