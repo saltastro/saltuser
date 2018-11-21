@@ -11,7 +11,8 @@ class SALTUser:
     The aim of this class is to allow checking roles and permissions. It includes no
     authentication.
 
-    A new user should be created using either the constructor or the :meth:`find_by_username` method.
+    A new user should be created using either the constructor or the
+    :meth:`find_by_username` method.
 
     You need to specify a database connection when creating the user. Any format allowed
     by the `con` parameter of pandas' `read_sql` function can be used.
@@ -32,10 +33,12 @@ class SALTUser:
 
     def __init__(self, user_id, db_connectable):
         # sanity check: does the user exist?
-        sql = 'SELECT PiptUser_Id FROM PiptUser WHERE PiptUser_Id=%(user_id)s'
+        sql = "SELECT PiptUser_Id FROM PiptUser WHERE PiptUser_Id=%(user_id)s"
         df = pd.read_sql(sql, con=db_connectable, params=dict(user_id=user_id))
         if len(df) == 0:
-            raise ValueError('There is no user with id {user_id}.'.format(user_id=user_id))
+            raise ValueError(
+                "There is no user with id {user_id}.".format(user_id=user_id)
+            )
 
         self._db_connectable = db_connectable
         self._user_id = user_id
@@ -52,7 +55,8 @@ class SALTUser:
         ----------
         username : str
             The username.
-        db_connectable : SQLAlchemy connectable(engine/connection) or database string URI
+        db_connectable : SQLAlchemy connectable(engine/connection) or database string
+                         URI
             A connection to the database to use, or its URI.
 
         Returns
@@ -82,16 +86,16 @@ class SALTUser:
 
         """
 
-        sql = '''
+        sql = """
 SELECT Value
        FROM PiptUserSetting as pus
        JOIN PiptSetting ps on pus.PiptSetting_Id = ps.PiptSetting_Id
        JOIN PiptUser AS pu ON pus.PiptUser_Id = pu.PiptUser_Id
        WHERE pu.PiptUser_Id=%(user_id)s AND PiptSetting_Name='RightAdmin'
-        '''
+        """
         df = self._query(sql, params=dict(user_id=self._user_id))
 
-        return len(df) > 0 and int(df['Value'][0], 10) > 0
+        return len(df) > 0 and int(df["Value"][0], 10) > 0
 
     def is_investigator(self, proposal_code):
         """
@@ -109,16 +113,18 @@ SELECT Value
 
         """
 
-        sql = '''
+        sql = """
 SELECT COUNT(*) AS User_Count
        FROM ProposalCode AS pc
        JOIN ProposalInvestigator pi on pc.ProposalCode_Id = pi.ProposalCode_Id
        JOIN Investigator AS i ON pi.Investigator_Id = i.Investigator_Id
        WHERE Proposal_Code=%(proposal_code)s AND PiptUser_Id=%(user_id)s
-        '''
-        df = self._query(sql, params=dict(proposal_code=proposal_code, user_id=self._user_id))
+        """
+        df = self._query(
+            sql, params=dict(proposal_code=proposal_code, user_id=self._user_id)
+        )
 
-        return df['User_Count'][0] > 0
+        return df["User_Count"][0] > 0
 
     def is_principal_investigator(self, proposal_code):
         """
@@ -136,16 +142,18 @@ SELECT COUNT(*) AS User_Count
 
         """
 
-        sql = '''
+        sql = """
 SELECT COUNT(*) AS User_Count
        FROM ProposalContact AS pco
        JOIN Investigator AS i ON pco.Leader_Id=i.Investigator_Id
        JOIN ProposalCode AS pc ON pco.ProposalCode_Id = pc.ProposalCode_Id
        WHERE Proposal_Code=%(proposal_code)s AND PiptUser_Id=%(user_id)s
-        '''
-        df = self._query(sql, params=dict(proposal_code=proposal_code, user_id=self._user_id))
+        """
+        df = self._query(
+            sql, params=dict(proposal_code=proposal_code, user_id=self._user_id)
+        )
 
-        return df['User_Count'][0] > 0
+        return df["User_Count"][0] > 0
 
     def is_principal_contact(self, proposal_code):
         """
@@ -163,16 +171,18 @@ SELECT COUNT(*) AS User_Count
 
         """
 
-        sql = '''
+        sql = """
 SELECT COUNT(*) AS User_Count
        FROM ProposalContact AS pco
        JOIN Investigator AS i ON pco.Contact_Id=i.Investigator_Id
        JOIN ProposalCode AS pc ON pco.ProposalCode_Id = pc.ProposalCode_Id
        WHERE Proposal_Code=%(proposal_code)s AND PiptUser_Id=%(user_id)s
-        '''
-        df = self._query(sql, params=dict(proposal_code=proposal_code, user_id=self._user_id))
+        """
+        df = self._query(
+            sql, params=dict(proposal_code=proposal_code, user_id=self._user_id)
+        )
 
-        return df['User_Count'][0] > 0
+        return df["User_Count"][0] > 0
 
     def is_tac_member(self, partner_code):
         """
@@ -207,7 +217,14 @@ SELECT COUNT(*) AS User_Count
 
         """
 
-        return len(set(self._tac_member_partners).intersection(self._proposal_partners(proposal_code))) > 0
+        return (
+            len(
+                set(self._tac_member_partners).intersection(
+                    self._proposal_partners(proposal_code)
+                )
+            )
+            > 0
+        )
 
     @property
     def tacs(self):
@@ -284,9 +301,16 @@ SELECT DISTINCT Proposal_Code
              OR (partner.Partner_Code IN %(tacs)s AND mp.ReqTimeAmount>0)
              OR (1=%(is_admin)s)
 """
-        df = self._query(sql, params=dict(user_id=self._user_id, tacs=self.tacs if self.tacs else ['IMPOSSIBLE_VALUE'], is_admin=1 if self.is_admin() else 0))
+        df = self._query(
+            sql,
+            params=dict(
+                user_id=self._user_id,
+                tacs=self.tacs if self.tacs else ["IMPOSSIBLE_VALUE"],
+                is_admin=1 if self.is_admin() else 0,
+            ),
+        )
 
-        self._viewable_proposals_cache = set(df['Proposal_Code'].tolist())
+        self._viewable_proposals_cache = set(df["Proposal_Code"].tolist())
         return self._viewable_proposals_cache
 
     def may_edit_proposal(self, proposal_code):
@@ -305,7 +329,11 @@ SELECT DISTINCT Proposal_Code
 
         """
 
-        return self.is_principal_investigator(proposal_code) or self.is_principal_contact(proposal_code) or self.is_admin()
+        return (
+            self.is_principal_investigator(proposal_code)
+            or self.is_principal_contact(proposal_code)
+            or self.is_admin()
+        )
 
     def may_view_block(self, block_id):
         """
@@ -378,19 +406,21 @@ SELECT DISTINCT Proposal_Code
 
         """
 
-        sql = '''
+        sql = """
 SELECT Proposal_Code
        FROM ProposalCode AS pc
        JOIN Block AS b ON pc.ProposalCode_Id = b.ProposalCode_Id
        WHERE Block_Id=%(block_id)s
-        '''
+        """
         df = self._query(sql, params=dict(block_id=block_id))
 
         # sanity check: does the block exist?
         if len(df) == 0:
-            raise ValueError('There exists no block with id {block_id}'.format(block_id=block_id))
+            raise ValueError(
+                "There exists no block with id {block_id}".format(block_id=block_id)
+            )
 
-        return df['Proposal_Code'][0]
+        return df["Proposal_Code"][0]
 
     def _query(self, sql, params):
         """
@@ -424,7 +454,8 @@ SELECT Proposal_Code
         ----------
         username : str
             The username.
-        db_connectable : SQLAlchemy connectable(engine/connection) or database string URI
+        db_connectable : SQLAlchemy connectable(engine/connection) or database string
+                         URI
             A connection to the database to use, or its URI.
 
         Returns
@@ -439,16 +470,18 @@ SELECT Proposal_Code
 
         """
 
-        sql = '''
+        sql = """
 SELECT PiptUser_Id FROM PiptUser WHERE Username=%(username)s
-        '''
+        """
         df = pd.read_sql(sql, con=db_connectable, params=dict(username=username))
 
         # sanity check: does the user exist?
         if len(df) == 0:
-            raise ValueError("The username does not exist: {username}".format(username=username))
+            raise ValueError(
+                "The username does not exist: {username}".format(username=username)
+            )
 
-        return df['PiptUser_Id'][0].item()
+        return df["PiptUser_Id"][0].item()
 
     def _proposal_partners(self, proposal_code):
         """
@@ -466,7 +499,7 @@ SELECT PiptUser_Id FROM PiptUser WHERE Username=%(username)s
 
         """
 
-        sql = '''
+        sql = """
 SELECT DISTINCT Partner_Code
        FROM Partner AS p
        JOIN Institute AS ins ON p.Partner_Id = ins.Partner_Id
@@ -474,10 +507,10 @@ SELECT DISTINCT Partner_Code
        JOIN ProposalInvestigator pi on i.Investigator_Id = pi.Investigator_Id
        JOIN ProposalCode AS pc ON pi.ProposalCode_Id = pc.ProposalCode_Id
        WHERE Proposal_Code=%(proposal_code)s
-        '''
+        """
         df = self._query(sql, params=dict(proposal_code=proposal_code))
 
-        return df['Partner_Code'].tolist()
+        return df["Partner_Code"].tolist()
 
     def _find_tac_member_partners(self):
         """
@@ -490,15 +523,15 @@ SELECT DISTINCT Partner_Code
 
         """
 
-        sql = '''
+        sql = """
 SELECT Partner_Code
        FROM PiptUserTAC AS putac
        JOIN Partner AS p ON putac.Partner_Id = p.Partner_Id
        WHERE PiptUser_Id=%(user_id)s
-        '''
+        """
         df = self._query(sql, params=dict(user_id=self._user_id))
 
-        return [pc for pc in df['Partner_Code'].tolist()]
+        return [pc for pc in df["Partner_Code"].tolist()]
 
     def _find_tac_chair_partners(self):
         """
@@ -511,12 +544,12 @@ SELECT Partner_Code
 
         """
 
-        sql = '''
+        sql = """
 SELECT Partner_Code
        FROM PiptUserTAC AS putac
        JOIN Partner AS p ON putac.Partner_Id = p.Partner_Id
        WHERE PiptUser_Id=%(user_id)s AND Chair=1
-            '''
+            """
         df = self._query(sql, params=dict(user_id=self._user_id))
 
-        return [pc for pc in df['Partner_Code'].tolist()]
+        return [pc for pc in df["Partner_Code"].tolist()]
