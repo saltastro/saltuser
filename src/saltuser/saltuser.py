@@ -42,6 +42,7 @@ class SALTUser:
 
         self._db_connectable = db_connectable
         self._user_id = user_id
+        self._is_board_member = None
         self._tac_member_partners = self._find_tac_member_partners()
         self._tac_chair_partners = self._find_tac_chair_partners()
         self._viewable_proposals_cache = None
@@ -73,9 +74,11 @@ SELECT PiptUser_Id AS UserCount
        FROM PiptUser
        WHERE Username=%(username)s AND Password=MD5(%(password)s)
         """
-        df = pd.read_sql(sql, con=db_connectable, params=dict(username=username, password=password))
+        df = pd.read_sql(
+            sql, con=db_connectable, params=dict(username=username, password=password)
+        )
         if len(df) == 0:
-            raise ValueError('invlid username or password')
+            raise ValueError("invlid username or password")
 
     @staticmethod
     def find_by_username(username, db_connectable):
@@ -215,6 +218,32 @@ SELECT COUNT(*) AS User_Count
 
         return df["User_Count"][0] > 0
 
+    def is_board_member(self):
+        """
+        Check whether the user is a Board member.
+
+        Returns
+        -------
+        bool
+            Whether the user is a Board member.
+        """
+
+        if self._is_board_member is None:
+            sql = """
+SELECT *
+       FROM PiptUserSetting
+       WHERE PiptUser_Id=%(user_id)s
+             AND PiptSetting_Id=
+                     (SELECT PiptSetting_Id
+                             FROM PiptSetting
+                             WHERE PiptSetting_Name='RightBoard')
+             AND Value>0
+            """
+            df = self._query(sql, dict(user_id=self._user_id))
+            self._is_board_member = len(df) > 0
+
+        return self._is_board_member
+
     def is_tac_member(self, partner_code):
         """
         Check whether the user is member of a partner's TAC.
@@ -331,6 +360,7 @@ SELECT DISTINCT Proposal_Code
        WHERE pu.PiptUser_Id=%(user_id)s
              OR (partner.Partner_Code IN %(tacs)s AND mp.ReqTimeAmount>0)
              OR (1=%(is_admin)s)
+             OR (1=%(is_board_member)s)
 """
         df = self._query(
             sql,
@@ -338,6 +368,7 @@ SELECT DISTINCT Proposal_Code
                 user_id=self._user_id,
                 tacs=self.tacs if self.tacs else ["IMPOSSIBLE_VALUE"],
                 is_admin=1 if self.is_admin() else 0,
+                is_board_member=1 if self.is_board_member() else 0,
             ),
         )
 

@@ -2,7 +2,14 @@
 
 ## Unreleased:
 
+(none)
+
+## [0.2.0]
+
+### Added:
+
 - Verify username and password
+- Check whether the user is a board member
 
 ## [0.1.1] - 2018-11-21
 
