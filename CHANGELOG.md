@@ -4,12 +4,18 @@
 
 (none)
 
-## [0.2.0]
+## [0.3.0] - 2018-11-27
 
 ### Added:
 
 - Verify username and password
 - Check whether the user is a board member
+
+## [0.2.0] - 2018-11-21
+
+### Changed:
+
+- Improved performance
 
 ## [0.1.1] - 2018-11-21
 
