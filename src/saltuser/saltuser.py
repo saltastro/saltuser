@@ -47,6 +47,37 @@ class SALTUser:
         self._viewable_proposals_cache = None
 
     @staticmethod
+    def verify(username, password, db_connectable):
+        """
+        Verify that a username-password combination is valid.
+
+        Parameters
+        ----------
+        username : str
+            The username.
+        password : str
+            The password.
+        db_connectable : SQLAlchemy connectable(engine/connection) or database string
+                         URI
+            A connection to the database to use, or its URI.
+
+        Raises
+        ------
+        ValueError
+            If the username or password are wrong.
+
+        """
+
+        sql = """
+SELECT PiptUser_Id AS UserCount
+       FROM PiptUser
+       WHERE Username=%(username)s AND Password=MD5(%(password)s)
+        """
+        df = pd.read_sql(sql, con=db_connectable, params=dict(username=username, password=password))
+        if len(df) == 0:
+            raise ValueError('invlid username or password')
+
+    @staticmethod
     def find_by_username(username, db_connectable):
         """
         Get the user with a given username.
