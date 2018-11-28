@@ -33,7 +33,12 @@ class SALTUser:
 
     def __init__(self, user_id, db_connectable):
         # sanity check: does the user exist?
-        sql = "SELECT PiptUser_Id FROM PiptUser WHERE PiptUser_Id=%(user_id)s"
+        sql = """
+SELECT pu.PiptUser_Id, FirstName, Surname, Email
+       FROM PiptUser AS pu
+       JOIN Investigator AS i USING (Investigator_Id)
+       WHERE pu.PiptUser_Id=%(user_id)s
+"""
         df = pd.read_sql(sql, con=db_connectable, params=dict(user_id=user_id))
         if len(df) == 0:
             raise ValueError(
@@ -42,6 +47,9 @@ class SALTUser:
 
         self._db_connectable = db_connectable
         self._user_id = user_id
+        self._given_name = df['FirstName'][0]
+        self._family_name = df['Surname'][0]
+        self._email = df['Email'][0]
         self._is_board_member = None
         self._tac_member_partners = self._find_tac_member_partners()
         self._tac_chair_partners = self._find_tac_chair_partners()
@@ -108,6 +116,48 @@ SELECT PiptUser_Id AS UserCount
         user_id = SALTUser._find_user_id(username, db_connectable)
 
         return SALTUser(user_id, db_connectable)
+
+    @property
+    def given_name(self):
+        """
+        Get the user's given name(s).
+
+        Returns
+        -------
+        str
+            The given name(s).
+
+        """
+
+        return self._given_name
+
+    @property
+    def family_name(self):
+        """
+        Get the user's family name.
+
+        Returns
+        -------
+        str
+            The family name.
+
+        """
+
+        return self._family_name
+
+    @property
+    def email(self):
+        """
+        Get the user's email address.
+
+        Returns
+        -------
+        str
+            The email address.
+
+        """
+
+        return self._email
 
     def is_admin(self):
         """
