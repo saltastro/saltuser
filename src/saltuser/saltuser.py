@@ -47,9 +47,9 @@ SELECT pu.PiptUser_Id, FirstName, Surname, Email
 
         self._db_connectable = db_connectable
         self._user_id = user_id
-        self._given_name = df['FirstName'][0]
-        self._family_name = df['Surname'][0]
-        self._email = df['Email'][0]
+        self._given_name = df["FirstName"][0]
+        self._family_name = df["Surname"][0]
+        self._email = df["Email"][0]
         self._is_board_member = None
         self._tac_member_partners = self._find_tac_member_partners()
         self._tac_chair_partners = self._find_tac_chair_partners()
