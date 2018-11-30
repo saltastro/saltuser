@@ -294,9 +294,12 @@ SELECT *
 
         return self._is_board_member
 
-    def is_tac_member(self, partner_code):
+    def is_tac_member(self, partner_code=None):
         """
         Check whether the user is member of a partner's TAC.
+
+        If no partner code is given, this method checks whether the user is member of
+        any TAC.
 
         Parameters
         ----------
@@ -309,6 +312,10 @@ SELECT *
            Whether the user is member of the partner's TAC.
 
         """
+
+        if not partner_code:
+            return len(self._tac_member_partners)
+
         return partner_code in self._tac_member_partners
 
     def is_proposal_tac_member(self, proposal_code):
@@ -349,9 +356,12 @@ SELECT *
 
         return self._tac_member_partners
 
-    def is_tac_chair(self, partner_code):
+    def is_tac_chair(self, partner_code=None):
         """
         Check whether the user is chair of a partner's TAC.
+
+        If no partner code is given, this method check whether the user is chair of any
+        TAC.
 
         Parameters
         ----------
@@ -361,9 +371,13 @@ SELECT *
         Returns
         -------
         bool
-           Whether the user is chair of the partner's TAC.
+           Whether the user is TAC chair.
 
         """
+
+        if not partner_code:
+            return len(self._tac_chair_partners)
+
         return partner_code in self._tac_chair_partners
 
     def may_view_proposal(self, proposal_code):

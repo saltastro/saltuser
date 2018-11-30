@@ -4,6 +4,10 @@
 
 (none)
 
+## [0.3.2] - 2018-11-30
+
+- Check for TAC membership without giving a partner
+
 ## [0.3.1] - 2018-11-28
 
 ### Added:
